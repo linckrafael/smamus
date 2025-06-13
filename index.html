@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gerenciador de Estacionamento</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f0f2f5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h2 {
+      margin: 20px 0 10px;
+      text-align: center;
+    }
+    #contador {
+      margin-bottom: 15px;
+      font-weight: bold;
+    }
+    .wrapper {
+      width: 100%;
+      max-width: 900px;
+      padding: 10px;
+      display: flex;
+      justify-content: center;
+    }
+    #estacionamento {
+      position: relative;
+      width: 100%;
+      padding-top: 100%;
+      background-image: url('estacionamento_800x800.png');
+      background-size: cover;
+      background-position: center;
+      border: 2px solid #333;
+    }
+    .vaga {
+      position: absolute;
+      width: 5%;
+      height: 2.5%;
+      background-color: rgba(0, 200, 0, 0.5);
+      border: 1px solid #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7vw;
+      color: #000;
+      user-select: none;
+      transform-origin: center center;
+    }
+    .vaga.ocupada {
+      background-color: rgba(200, 0, 0, 0.7);
+    }
+    @media (max-width: 600px) {
+      .vaga { font-size: 2.5vw; }
+    }
+  </style>
+</head>
+<body>
+  <h2>Gerenciador de Estacionamento</h2>
+  <div id="contador">Total: 0 | Ocupadas: 0 | Livres: 0</div>
+  <div class="wrapper">
+    <div id="estacionamento"></div>
+  </div>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDvgoGXBnFZbXi28SuSnQlx8mIN6Ebsflk",
+      authDomain: "estacionamentosmamus.firebaseapp.com",
+      databaseURL: "https://estacionamentosmamus-default-rtdb.firebaseio.com",
+      projectId: "estacionamentosmamus",
+      storageBucket: "estacionamentosmamus.appspot.com",
+      messagingSenderId: "486027662104",
+      appId: "1:486027662104:web:19a3b77ef1217993648d85"
+    };
+
+    const app = firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const estacionamentoRef = db.ref("vagas");
+    const container = document.getElementById('estacionamento');
+    const contador = document.getElementById('contador');
+    const isAdmin = window.location.search.includes('admin=true');
+
+    function renderVagas(vagas) {
+      container.innerHTML = '';
+      let ocupadas = 0;
+
+      Object.entries(vagas).forEach(([id, v]) => {
+        const div = document.createElement('div');
+        div.className = 'vaga';
+        if (v.ocupada) {
+          div.classList.add('ocupada');
+          ocupadas++;
+        }
+        div.style.top = v.top + '%';
+        div.style.left = v.left + '%';
+        div.style.transform = `rotate(${v.rotate}deg)`;
+        div.textContent = id;
+        div.title = id;
+
+        if (isAdmin) {
+          div.style.cursor = 'pointer';
+          div.addEventListener('click', () => {
+            db.ref('vagas/' + id + '/ocupada').set(!v.ocupada);
+          });
+        } else {
+          div.style.cursor = 'default';
+        }
+
+        container.appendChild(div);
+      });
+
+      contador.textContent = `Total: ${Object.keys(vagas).length} | Ocupadas: ${ocupadas} | Livres: ${Object.keys(vagas).length - ocupadas}`;
+    }
+
+    estacionamentoRef.on('value', (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        renderVagas(data);
+      }
+    });
+  </script>
+</body>
+</html>
