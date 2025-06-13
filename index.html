@@ -2,11 +2,14 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Gerenciador de Estacionamento</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
   <style>
-    * { box-sizing: border-box; }
+    /* Estilos Gerais */
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       font-family: 'Segoe UI', sans-serif;
       background-color: #f0f2f5;
@@ -17,14 +20,20 @@
       align-items: center;
       min-height: 100vh;
     }
+
     h2 {
       margin: 20px 0 10px;
       text-align: center;
+      color: #333;
     }
+
     #contador {
       margin-bottom: 15px;
       font-weight: bold;
+      color: #555;
     }
+
+    /* Container Principal */
     .wrapper {
       width: 100%;
       max-width: 900px;
@@ -32,101 +41,419 @@
       display: flex;
       justify-content: center;
     }
+
+    /* Área do Estacionamento */
     #estacionamento {
       position: relative;
       width: 100%;
-      padding-top: 100%;
-      background-image: url('estacionamento_800x800.png');
+      padding-top: 100%; /* Proporção 1:1 para o background-image */
+      background-image: url('https://placehold.co/800x800/E0E0E0/333333?text=Estacionamento'); /* Imagem de placeholder, substitua pela sua 'estacionamento_800x800.png' */
       background-size: cover;
       background-position: center;
       border: 2px solid #333;
+      border-radius: 10px;
+      overflow: hidden; /* Garante que as vagas não escapem do container */
     }
+
+    /* Estilo das Vagas */
     .vaga {
       position: absolute;
-      width: 5%;
-      height: 2.5%;
-      background-color: rgba(0, 200, 0, 0.5);
+      width: 5%; /* Largura relativa */
+      height: 2.5%; /* Altura relativa */
+      background-color: rgba(0, 200, 0, 0.5); /* Verde semi-transparente para livre */
       border: 1px solid #000;
+      border-radius: 5px; /* Cantos arredondados */
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.7vw;
-      color: #000;
-      user-select: none;
+      font-size: 0.7vw; /* Tamanho da fonte responsivo */
+      font-weight: bold;
+      color: #fff; /* Texto branco */
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.7); /* Sombra no texto */
+      user-select: none; /* Impede seleção de texto */
       transform-origin: center center;
+      transition: background-color 0.3s ease; /* Transição suave na cor */
     }
+
     .vaga.ocupada {
-      background-color: rgba(200, 0, 0, 0.7);
+      background-color: rgba(200, 0, 0, 0.7); /* Vermelho semi-transparente para ocupada */
     }
+
+    .vaga.admin-mode {
+      cursor: pointer; /* Cursor de ponteiro apenas no modo admin */
+      box-shadow: 0 0 8px rgba(0, 123, 255, 0.5); /* Sombra para indicar clicável */
+    }
+
+    /* Responsividade para fontes */
     @media (max-width: 600px) {
-      .vaga { font-size: 2.5vw; }
+      .vaga {
+        font-size: 2.5vw; /* Aumenta a fonte em telas menores */
+      }
     }
+
+    /* Container dos Botões de Modo */
+    #mode-toggle-container {
+      margin-top: 20px;
+      display: flex;
+      flex-wrap: wrap; /* Permite quebrar linha em telas menores */
+      gap: 10px;
+      justify-content: center;
+    }
+
+    #mode-toggle-container button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border: none;
+      border-radius: 5px;
+      background-color: #007bff;
+      color: white;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); /* Sombra nos botões */
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    #mode-toggle-container button:hover {
+      background-color: #0056b3;
+      transform: translateY(-2px); /* Efeito de levantar no hover */
+    }
+
+    #mode-toggle-container button:active {
+      transform: translateY(0); /* Retorna na ativação */
+    }
+
+    /* Estilo do Modal (para substituir alert/prompt) */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      visibility: hidden;
+      opacity: 0;
+      transition: visibility 0s, opacity 0.3s;
+    }
+
+    .modal-overlay.visible {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .modal-content {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      transform: scale(0.9);
+      transition: transform 0.3s ease-out;
+    }
+
+    .modal-overlay.visible .modal-content {
+      transform: scale(1);
+    }
+
+    .modal-content input {
+      width: calc(100% - 20px);
+      padding: 10px;
+      margin-top: 15px;
+      margin-bottom: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      font-size: 16px;
+    }
+
+    .modal-content button {
+      background-color: #28a745;
+      color: white;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s ease;
+    }
+
+    .modal-content button:hover {
+      background-color: #218838;
+    }
+
+    .modal-content .close-button {
+      background-color: #6c757d;
+      margin-left: 10px;
+    }
+    .modal-content .close-button:hover {
+      background-color: #5a6268;
+    }
+
   </style>
 </head>
 <body>
+
   <h2>Gerenciador de Estacionamento</h2>
   <div id="contador">Total: 0 | Ocupadas: 0 | Livres: 0</div>
   <div class="wrapper">
     <div id="estacionamento"></div>
   </div>
 
+  <div id="mode-toggle-container">
+    <button id="admin-mode-btn">Modo Administrador</button>
+    <button id="user-mode-btn">Modo Usuário</button>
+  </div>
+
+  <!-- Modal para Senha do Administrador -->
+  <div id="admin-password-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>Senha do Administrador</h3>
+      <p>Digite a senha para acessar o modo administrador:</p>
+      <input type="password" id="admin-password-input" placeholder="Senha" />
+      <button id="admin-password-submit">Entrar</button>
+      <button id="admin-password-cancel" class="close-button">Cancelar</button>
+    </div>
+  </div>
+
+  <!-- Modal para Mensagens (substitui alert) -->
+  <div id="message-modal" class="modal-overlay">
+    <div class="modal-content">
+      <h3 id="message-modal-title"></h3>
+      <p id="message-modal-text"></p>
+      <button id="message-modal-ok">OK</button>
+    </div>
+  </div>
+
+  <!-- Inclusão do Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
+
   <script>
+    // Seus dados de configuração do Firebase
     const firebaseConfig = {
       apiKey: "AIzaSyDvgoGXBnFZbXi28SuSnQlx8mIN6Ebsflk",
       authDomain: "estacionamentosmamus.firebaseapp.com",
       databaseURL: "https://estacionamentosmamus-default-rtdb.firebaseio.com",
       projectId: "estacionamentosmamus",
-      storageBucket: "estacionamentosmamus.appspot.com",
-      messagingSenderId: "486027662104",
-      appId: "1:486027662104:web:19a3b77ef1217993648d85"
+      storageBucket: "estacionamentosmamus.firebasestorage.app",
+      messagingSenderId: "864410096092",
+      appId: "1:864410096092:web:c8f039da393d4130bb7f19",
+      measurementId: "G-C8M7BEK2ZR"
     };
 
-    const app = firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const estacionamentoRef = db.ref("vagas");
+    // Inicializa o Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database(); // Obtém uma referência para o Realtime Database
+    const vagasRef = database.ref('vagas'); // Define a referência para o nó 'vagas' no seu DB
+
     const container = document.getElementById('estacionamento');
     const contador = document.getElementById('contador');
-    const isAdmin = window.location.search.includes('admin=true');
-  </script>
-  <script>
-    function renderVagas(vagas) {
-      container.innerHTML = '';
-      let ocupadas = 0;
+    const adminModeBtn = document.getElementById('admin-mode-btn');
+    const userModeBtn = document.getElementById('user-mode-btn');
 
-      Object.entries(vagas).forEach(([id, v]) => {
+    const adminPasswordModal = document.getElementById('admin-password-modal');
+    const adminPasswordInput = document.getElementById('admin-password-input');
+    const adminPasswordSubmit = document.getElementById('admin-password-submit');
+    const adminPasswordCancel = document.getElementById('admin-password-cancel');
+
+    const messageModal = document.getElementById('message-modal');
+    const messageModalTitle = document.getElementById('message-modal-title');
+    const messageModalText = document.getElementById('message-modal-text');
+    const messageModalOk = document.getElementById('message-modal-ok');
+
+
+    let isAdminMode = false; // Começa no modo usuário
+    let vagas = []; // As vagas serão carregadas do Firebase
+
+    // Função para mostrar um modal de mensagem
+    function showMessage(title, text) {
+      messageModalTitle.textContent = title;
+      messageModalText.textContent = text;
+      messageModal.classList.add('visible');
+    }
+
+    // Função para esconder o modal de mensagem
+    messageModalOk.addEventListener('click', () => {
+      messageModal.classList.remove('visible');
+    });
+
+
+    function renderVagas() {
+      container.innerHTML = ''; // Limpa o container antes de renderizar
+      vagas.forEach(v => {
         const div = document.createElement('div');
         div.className = 'vaga';
-        if (v.ocupada) {
-          div.classList.add('ocupada');
-          ocupadas++;
-        }
+        if (v.ocupada) div.classList.add('ocupada');
+        if (isAdminMode) div.classList.add('admin-mode');
         div.style.top = v.top + '%';
         div.style.left = v.left + '%';
         div.style.transform = `rotate(${v.rotate}deg)`;
-        div.textContent = id;
-        div.title = id;
+        div.textContent = v.id;
+        div.title = v.id;
 
-        if (isAdmin) {
-          div.style.cursor = 'pointer';
+        // Adiciona evento de clique apenas se estiver no modo administrador
+        if (isAdminMode) {
           div.addEventListener('click', () => {
-            db.ref('vagas/' + id + '/ocupada').set(!v.ocupada);
+            // Inverte o status da vaga e atualiza no Firebase
+            const newStatus = !v.ocupada;
+            vagasRef.child(v.id).update({ ocupada: newStatus })
+              .then(() => {
+                console.log(`Vaga ${v.id} atualizada para ${newStatus ? 'ocupada' : 'livre'}`);
+                // Não precisamos chamar renderVagas aqui, o listener do Firebase fará isso
+              })
+              .catch(error => {
+                console.error("Erro ao atualizar vaga no Firebase:", error);
+                showMessage("Erro", "Não foi possível atualizar a vaga. Verifique sua conexão ou permissões do Firebase.");
+              });
           });
-        } else {
-          div.style.cursor = 'default';
         }
-
         container.appendChild(div);
       });
-
-      contador.textContent = `Total: ${Object.keys(vagas).length} | Ocupadas: ${ocupadas} | Livres: ${Object.keys(vagas).length - ocupadas}`;
+      atualizarContador();
     }
 
-    estacionamentoRef.on('value', (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        renderVagas(data);
+    function atualizarContador() {
+      const total = vagas.length;
+      const ocupadas = vagas.filter(v => v.ocupada).length;
+      contador.textContent = `Total: ${total} | Ocupadas: ${ocupadas} | Livres: ${total - ocupadas}`;
+    }
+
+    // Listener para mudanças no Firebase Realtime Database
+    vagasRef.on('value', (snapshot) => {
+      const firebaseData = snapshot.val();
+      if (firebaseData) {
+        // Converte o objeto de vagas do Firebase de volta para o formato de array
+        const loadedVagas = Object.keys(firebaseData).map(key => ({
+          id: key,
+          ...firebaseData[key]
+        }));
+        vagas = loadedVagas;
+      } else {
+        // Se não houver dados, inicializa com as vagas padrão e salva no Firebase
+        console.log("Nenhum dado de vagas no Firebase. Inicializando com vagas padrão.");
+        // As vagas originais com posições
+        const initialVagasData = [
+          { id: "V01", top: 7.1, left: 46.5, ocupada: false, rotate: 15 },
+          { id: "V02", top: 12.1, left: 49.4, ocupada: false, rotate: 15 },
+          { id: "V03", top: 16.5, left: 51.4, ocupada: false, rotate: 15 },
+          { id: "V04", top: 21.4, left: 54.2, ocupada: false, rotate: 15 },
+          { id: "V05", top: 42.5, left: 64.4, ocupada: false, rotate: 60 },
+          { id: "V06", top: 51.4, left: 73.2, ocupada: false, rotate: -30 },
+          { id: "V07", top: 55.4, left: 75.2, ocupada: false, rotate: -30 },
+          { id: "V08", top: 58.5, left: 77.1, ocupada: false, rotate: -30 },
+          { id: "V09", top: 61.8, left: 79, ocupada: false, rotate: -30 },
+          { id: "V10", top: 64.9, left: 80.8, ocupada: false, rotate: -30 },
+          { id: "V11", top: 68.4, left: 82.2, ocupada: false, rotate: -30 },
+          { id: "V12", top: 71.8, left: 83.9, ocupada: false, rotate: -30 },
+          { id: "V13", top: 75.1, left: 85.5, ocupada: false, rotate: -30 },
+          { id: "V14", top: 78.4, left: 87.5, ocupada: false, rotate: -30 },
+          { id: "V15", top: 22.6, left: 40.4, ocupada: false, rotate: -75 },
+          { id: "V16", top: 27.2, left: 42.8, ocupada: false, rotate: -75 },
+          { id: "V17", top: 32.5, left: 45.1, ocupada: false, rotate: -75 },
+          { id: "V18", top: 36.5, left: 47.8, ocupada: false, rotate: -75 },
+          { id: "V19", top: 41.1, left: 50.5, ocupada: false, rotate: -75 },
+          { id: "V20", top: 46.1, left: 52.8, ocupada: false, rotate: -75 },
+          { id: "V21", top: 51.0, left: 55.5, ocupada: false, rotate: -75 },
+          { id: "V22", top: 55.5, left: 58, ocupada: false, rotate: -75 },
+          { id: "V23", top: 60.8, left: 60.2, ocupada: false, rotate: -75 },
+          { id: "V24", top: 64.8, left: 62.9, ocupada: false, rotate: -75 },
+          { id: "V25", top: 69.6, left: 65.2, ocupada: false, rotate: -75 },
+          { id: "V26", top: 74.3, left: 68, ocupada: false, rotate: -75 },
+          { id: "V27", top: 79.3, left: 70.6, ocupada: false, rotate: -75 },
+          { id: "V28", top: 85.4, left: 74.5, ocupada: false, rotate: -30 },
+          { id: "V29", top: 36.5, left: 33.1, ocupada: false, rotate: 15 },
+          { id: "V30", top: 41.8, left: 36, ocupada: false, rotate: 15 },
+          { id: "V31", top: 46.4, left: 38.4, ocupada: false, rotate: 15 },
+          { id: "V32", top: 51.4, left: 41.1, ocupada: false, rotate: 15 },
+          { id: "V33", top: 56.1, left: 43.8, ocupada: false, rotate: 15 },
+          { id: "V34", top: 60.6, left: 46.3, ocupada: false, rotate: 15 },
+          { id: "V35", top: 65.4, left: 48.4, ocupada: false, rotate: 15 },
+          { id: "V36", top: 70.0, left: 51.5, ocupada: false, rotate: 15 },
+          { id: "V37", top: 74.9, left: 53.9, ocupada: false, rotate: 15 },
+          { id: "V38", top: 79.5, left: 56.3, ocupada: false, rotate: 15 },
+          { id: "V39", top: 33.2, left: 14.5, ocupada: false, rotate: -30 },
+          { id: "V40", top: 36.3, left: 16, ocupada: false, rotate: -30 },
+          { id: "V41", top: 40.0, left: 17.6, ocupada: false, rotate: -30 },
+          { id: "V42", top: 43.3, left: 19.6, ocupada: false, rotate: -30 },
+          { id: "V43", top: 46.6, left: 21.6, ocupada: false, rotate: -30 },
+          { id: "V44", top: 49.8, left: 23.1, ocupada: false, rotate: -30 },
+          { id: "V45", top: 53.1, left: 24.6, ocupada: false, rotate: -30 },
+          { id: "V46", top: 56.4, left: 26.2, ocupada: false, rotate: -30 },
+          { id: "V47", top: 59.8, left: 28.5, ocupada: false, rotate: -30 },
+          { id: "V48", top: 63.1, left: 30.5, ocupada: false, rotate: -30 },
+          { id: "V49", top: 66.1, left: 31.9, ocupada: false, rotate: -30 },
+          { id: "V50", top: 69.4, left: 34.0, ocupada: false, rotate: -30 },
+          { id: "V51", top: 72.8, left: 35.9, ocupada: false, rotate: -30 },
+          { id: "V52", top: 76.0, left: 37.5, ocupada: false, rotate: -30 },
+          { id: "V53", top: 79.5, left: 39.3, ocupada: false, rotate: -30 },
+          { id: "V54", top: 83.3, left: 41.0, ocupada: false, rotate: -30 },
+          { id: "V55", top: 86.6, left: 42.5, ocupada: false, rotate: -30 },
+          { id: "V56", top: 89.9, left: 44.5, ocupada: false, rotate: -30 },
+          { id: "V57", top: 93.5, left: 46.1, ocupada: false, rotate: -30 },
+          { id: "V58", top: 39.6, left: 28.2, ocupada: false, rotate: 60 },
+          { id: "V59", top: 47.1, left: 32.6, ocupada: false, rotate: 60 },
+          { id: "V60", top: 54.5, left: 36.4, ocupada: false, rotate: 60 },
+          { id: "V61", top: 62.5, left: 41.3, ocupada: false, rotate: 60 },
+          { id: "V62", top: 70.8, left: 45.1, ocupada: false, rotate: 60 },
+          { id: "V63", top: 79.3, left: 49.6, ocupada: false, rotate: 60 }
+        ];
+
+        const vagasObject = {};
+        initialVagasData.forEach(vaga => {
+          const { id, ...rest } = vaga;
+          vagasObject[id] = rest;
+        });
+
+        // Salva as vagas iniciais no Firebase
+        vagasRef.set(vagasObject)
+          .then(() => console.log("Vagas iniciais salvas no Firebase."))
+          .catch(error => console.error("Erro ao salvar vagas iniciais no Firebase:", error));
+
+        vagas = initialVagasData; // Usa as vagas padrão para a primeira renderização
+      }
+      renderVagas(); // Renderiza sempre que os dados mudam no Firebase
+    }, (errorObject) => {
+      console.log("A leitura falhou: " + errorObject.code);
+      showMessage("Erro de Conexão", "Não foi possível carregar os dados das vagas. Verifique sua conexão com a internet ou as regras de segurança do Firebase.");
+    });
+
+
+    // Lógica para o Modal de Senha do Administrador
+    adminModeBtn.addEventListener('click', () => {
+      adminPasswordModal.classList.add('visible');
+      adminPasswordInput.focus();
+    });
+
+    adminPasswordSubmit.addEventListener('click', () => {
+      const password = adminPasswordInput.value;
+      if (password === "admin123") { // Senha hardcoded para demonstração. MUDAR PARA AUTENTICAÇÃO SEGURA EM PRODUÇÃO!
+        isAdminMode = true;
+        renderVagas();
+        adminPasswordModal.classList.remove('visible');
+        adminPasswordInput.value = ''; // Limpa o campo
+        showMessage("Sucesso", "Modo Administrador ativado!");
+      } else {
+        showMessage("Erro", "Senha incorreta.");
+        adminPasswordInput.value = ''; // Limpa o campo
       }
     });
+
+    adminPasswordCancel.addEventListener('click', () => {
+      adminPasswordModal.classList.remove('visible');
+      adminPasswordInput.value = ''; // Limpa o campo
+    });
+
+    userModeBtn.addEventListener('click', () => {
+      isAdminMode = false;
+      renderVagas();
+      showMessage("Sucesso", "Modo Usuário ativado!");
+    });
+
+    // Observação: A chamada inicial de renderVagas() não é mais necessária aqui,
+    // pois a função será chamada pelo listener do Firebase ('value').
   </script>
 </body>
 </html>
